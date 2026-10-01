@@ -1,0 +1,85 @@
+# Shadowrocket Super VIP Config - Optimized by hoang3te
+#!name = locket-gold-hoang3te
+#!desc = Mở khóa Locket Gold + TikTok No Watermark + YouTube Premium + Spotify VIP + Chặn quảng cáo toàn diện
+#!author = hoang3te
+
+[General]
+bypass-system = true
+skip-proxy = 192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12, localhost, *.local, captive.apple.com
+tun-excluded-routes = 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 255.255.255.255/32, 239.255.255.250/32
+# DNS Tốc độ cao được tối ưu chống rò rỉ (Cloudflare + Google DoH)
+dns-server = 1.1.1.1, 8.8.8.8, 1.0.0.1
+fallback-dns-server = 8.8.4.4
+ipv6 = false
+prefer-ipv6 = false
+dns-direct-system = false
+icmp-auto-reply = true
+always-reject-url-rewrite = false
+private-ip-answer = true
+dns-direct-fallback-proxy = false
+udp-policy-not-supported-behaviour = REJECT
+
+[Rule]
+# 1. Chặn toàn bộ UDP/QUIC đối với Google & YouTube (Bắt buộc để giải mã lọc sạch QC)
+AND,((DOMAIN-SUFFIX,googlevideo.com),(PROTOCOL,UDP)),REJECT
+AND,((DOMAIN,youtubei.googleapis.com),(PROTOCOL,UDP)),REJECT
+
+# 2. Chặn các mạng quảng cáo phổ biến trong các ứng dụng iOS (AdMob, UnityAds, AppLovin, Vungle)
+DOMAIN-SUFFIX,googleads.g.doubleclick.net,REJECT
+DOMAIN-SUFFIX,admob.com,REJECT
+DOMAIN-SUFFIX,unityads.unity3d.com,REJECT
+DOMAIN-SUFFIX,applvn.com,REJECT
+DOMAIN-SUFFIX,applovin.com,REJECT
+DOMAIN-SUFFIX,vungle.com,REJECT
+DOMAIN-SUFFIX,adcolony.com,REJECT
+
+# 3. Định tuyến mạng nội bộ và mặc định
+IP-CIDR,192.168.0.0/16,DIRECT
+IP-CIDR,10.0.0.0/8,DIRECT
+IP-CIDR,172.16.0.0/12,DIRECT
+IP-CIDR,127.0.0.0/8,DIRECT
+GEOIP,VN,DIRECT
+FINAL,DIRECT
+
+[Header Rewrite]
+# Xóa ETag RevenueCat để ép cập nhật trạng thái VIP mới nhất
+^https?://api.revenuecat.com/.+/(receipts$|subscribers/?(.*?)*$) header-del x-revenuecat-etag
+^https?://api.revenuecat.com/.+/(receipts$|subscribers/?(.*?)*$) header-del X-RevenueCat-ETag
+
+# TikTok: Đổi vùng và gỡ giới hạn
+(?<=_region=)CN(?=&) URL 307 VN
+(?<=&app_version=)1[6-9]..(?=.?&) URL 307 17.
+(?<=\?version_code=)1[6-9]..(?=.?&) URL 307 17.
+
+# Spotify Header Bypass
+http-request ^https:\/\/(spclient\.wg\.spotify\.com|.*-spclient\.spotify\.com(:443)?)\/user-customization-service\/v1\/customize$ header-del if-none-match
+
+[URL Rewrite]
+# Chặn sạch Ads Video YouTube
+^https?:\/\/[\w-]+\.googlevideo\.com\/(?!(dclk_video_ads|videoplayback\?)).+&oad _ reject-200
+^https?:\/\/(www|s)\.youtube\.com\/api\/stats\/ads _ reject-200
+^https?:\/\/(www|s)\.youtube\.com\/(pagead|ptracking) _ reject-200
+^https?:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext _ reject-200
+(^https?:\/\/[\w-]+\.googlevideo\.com\/(?!dclk_video_ads).+?)&ctier=L(&.+?),ctier,(.+) $1$2$3 302
+
+[Script]
+# Sub-Store quản lý node
+Sub-Store Core = type=http-request,pattern=^https?:\/\/sub\.store\/((download)|api\/(preview|sync|(utils\/node-info))),script-path=https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-1.min.js,requires-body=true,timeout=120
+Sub-Store Simple = type=http-request,pattern=^https?:\/\/sub\.store,script-path=https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store-0.min.js,requires-body=true
+Sub-Store Sync = type=cron,cronexp=0 0 * * *,wake-system=1,timeout=120,script-path=https://github.com/sub-store-org/Sub-Store/releases/latest/download/cron-sync-artifacts.min.js
+
+# YouTube Premium & Chặn QC YouTube
+youtube.request = type=http-request,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(browse|next|player|reel\/reel_watch_sequence|get_watch),requires-body=1,max-size=-1,binary-body-mode=1,engine=jsc,script-path=https://raw.githubusercontent.com/duyvinh09/Module_IOS/refs/heads/main/js/youtube.response.js
+youtube.response = type=http-response,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(browse|next|player|reel\/reel_watch_sequence|get_watch),requires-body=1,max-size=-1,binary-body-mode=1,engine=jsc,script-path=https://raw.githubusercontent.com/duyvinh09/Module_IOS/refs/heads/main/js/youtube.response.js
+
+# Locket Gold & 100+ App RevenueCat (CapCut, VSCO, B612, Remini, Lightroom, Scanner,...)
+locket_gold = type=http-response,pattern=^https?:\/\/api\.revenuecat\.com\/.+\/(receipts$|subscribers\/?(.*?)*$),requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/lhhoang5425/locket-gold-hoang3te/main/Revenuecat.js
+
+# Spotify Unlock Lyrics & Premium Features
+spotify = type=http-response,pattern=^https:\/\/spclient\.wg\.spotify\.com\/(bootstrap\/v1\/bootstrap|user-customization-service\/v1\/customize)$,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/app2share/shadowrocket/main/spotify.js
+
+[MITM]
+enable = true
+ca-passphrase = cd5tYPNU
+ca-p12 = MIIJqgIBAzCCCWkGCSqGSIb3DQEHAaCCCVoEgglWMIIJUjCCB9kGCSqGSIb3DQEHBqCCB8owggfGAgEAMIIHvwYJKoZIhvcNAQcBMF4GCSqGSIb3DQEFDTBRMDAGCSqGSIb3DQEFDDAjBBA6p/huZao5lVY6sKa6C/WmAgEBMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBAMXTXZMpVPzy9PQ6RN10lXgIIHUMglyzWkvvFze8MoNrFGH2+xY+BFiLD4l2c2v1PlyTdQKf07Sbb813Ox/Zx1I7IDw+lgymU7IIv/1SOlGKbotmsBHlzF7PcuMMms59La/g1JE6Cl7Q68rxDjxL4bdRgBhAZ3VEIaXuDIqlycbSZy2boqNeO9O2BqRQpjPtuxr+ERNfxDr60GlaphkOwB1Y7QCM7qohvFolK2BOO60ZbwTSbtx5bnHFilTUdi8aVBTcSNCVeSMC6xS2WOO/Rge4Mi+56HDnno2GfdGbc1oyi7z8xd0V8yca+PBUTDm+BizD7Hs6L0jwqtYY0IFBtQTWSsP03GPAtGWr5qudQulSdYWAAymyJ6GXwS2z/fwpFiOmw4RUAvs+ZWj3nubkkRO5b7HlSX9mEpexGxfzl/kAvFNw+yHXVqkASMtRrKhNsqJAA5SPlVBVnwk3qJoIaBzGaie9uUYEs8i6SHl1c14ymwWIdspBXira4ZEUWfidxjI60rgKxwIJjvlKrWoMkH0/po0DuY3zbzKUtnWOHCfwHTsseTdl4D15Ssq5OQRzO3FXwrqJm8HfFOi0E9ozGOugc9hLEdEUIuxVl5rRAafEFPNA9QANC7hZmApYBiZYU0NIh7q8rmz/iNx3+qeKmuZdHqRXBj+KKiqwZdCNaobvanL3cmfRe4pmBZzpMkxoSiCGnqWSoQRplOM+oFAej9Pu6TMneLOJPt+H6JWHpgjA/zo5dr2RO5vfurIh6EelgMEJZHBRv8XtVgJYTyHqbbzqeaJNw6iClIBZgyx+cyyvvLPvtRUduDzx7ict8Ba/95iHcXYFks0CQyMYcNhPZpF//rGybJdwQLug64sxbel6gJkOBEQqcf4rgXwAWvC26aEuHryT9fiYuzawwdnvHa1kxNMz/2jWiJWn3r7AB75c19VXUXhfaFV6ud6Vfop7uWsHpHPJRecvGPa7DuCGVKq51koeKb2uucNI/0XuctHekWGyqu731qdoTP9UON3UGhiPg5cEJOa3Me2BnMiGOgJtSFI802LHd0YcScBsnw73CMBBx4HJaUzwq/OTAjAOokcWNwXslKXkIhseZ+1eCuDEHDXvm6MZULqIG2F8AUJQcBCYQszhIsRaXP66ltjQuV3BfHDovYbHFH0jw3/f4Y06SITw+Z5gUd0C4zOmOumhjpixfrUQufsfAjh5uRrINii5UNh1preexIoD977BwbU+3J/kmTNYLJ/M+UopJBPC/u0nhYqTb/DrBq5lFga5FVGgw+w2nf8ZQMxtLFJVC/2eNMaVexLfaeq9mMG06esfsHAdukELBLRdc8r3YfxPJuUVedlYsKNqbJ8tGfdqABcWMvPJS3+3e+mFspSLN8o6V84ErDRL68mUZybEAMUeErW1RfFvZMroc6J3CFrguro+zOT5YWg18HFITClkxR1w1v9SWA7Vz3WCI0LBnwyBHaAGUSAJRi2HL3CkQZqfBOgb4H7OhfFX7SWKkthzY3aWCfVjQRxQcnAtikgThfAbfylWiC47Qv+SbjnBHnwdGbeyBOTquj4MVTOYB5kzriw9w/eNPmOwD5Ff1/qvHLDlsLRC4axeBPBUbfBNQK5eYwngJXtgwkfA1qNp2XNlhqzqhSPNHKTKe0PAWEoh1dvWgS6s1njZGd3dQ+9MTrTNgbAgh0eKUdsScSHrnD03lXNShC4aaJteNcnxkHbSEmSHN9aSdoBpcor+WwiDo3xz6heJ8cVnexBaDwtmXKZHqzjEIDdJwFsjQ8XQh+5xHoiqcOHtE5iW+fR6G4KSRFlUI00LvvIU6vSSZsrTXMR+t3yXc153v2AE/ytkNABQ75hS20A7kDEsGiPaEF34GNcYP3254KZ6rSGBOFD2b8+LEDKQ2hFcaEr9fFeXAh52oyTYbVL+4I64GQ3+G5nq6AMSybQXui9tpPv3GgyXpgHZ6sqf2rX8QBO2XsohPr251FgXWm9ep0jrFPbOnIkwytPvRSpn0Rbkosbk6HAo/HXkCCRMMbTAR8ppdEyDk9Mmx+JeRkgWjBP+9pynK5bcC4X0WVkcbg1zuPfyUew4ht/+Hhy/0hCFbw4J/1rER/YwpUZRJMuwvvJtn7k4q0tVleT+oMlmowSlZ3cjds2CR+56iiG/FoCQ/MSBau32rY9V/6SZtDQ078dWxDU0NTK++MGxr58IjcUSnk8cnzxKF045dhI41VAF1rHmIovWOjwnO5RcLwymiySnzqKZg/LkxI+pzywngit5iDo67JCjQ4QZTHK/XXWgqIKCE2Ao4dk6uTUieapjzRlafRW0u0v5RaW6vwYxYRtI+lE3WTwLPi7IjL5F1q34x3iKYGwgx0qapuIOeCi+yqp3bbv2r2YYLLVNVfEIVyuERLhcaJk2bcptDEBOa9O6VAOwdbm/eGB1hmG1KWRMdXf80ZfQd22FqGissF63AR3PzSkfDBZferuPiyQlSHb4ptAtRGGLU5//e0E/t/5HAa1m2z/HG1eNtKgskwOH+BRDCCAXEGCSqGSIb3DQEHAaCCAWIEggFeMIIBWjCCAVYGCyqGSIb3DQEMCgECoIH2MIHzMF4GCSqGSIb3DQEFDTBRMDAGCSqGSIb3DQEFDDAjBBDXojgLk/aL/J+cEAYYKYpcAgEBMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBC75LSKlaff7TenEYN6KtNkBIGQdXO//vLO5xHSsIxvvUcI+Gx90kvpzOC/UqFPjxzq5ju8xZB6I/qfO6yHZZZc+Aphx9/TEx8ROFmj6pmw5x7HEcL21gIg6byWoP7eE210G4go/iLV0+4/kQPvM5VHozQNSmjgcbxdv4T6PIvCgaKd3s0wYw5GJhWNFBp/lBkvg69jf8bpo16wWuvriZ1W4SSsMU4wIwYJKoZIhvcNAQkVMRYEFC6jfDCqIttwww0GO6q8XRjumsoMMCcGCSqGSIb3DQEJFDEaHhgAUwBoAGEAZABvAHcAcgBvAGMAawBlAHQwODAhMAkGBSsOAwIaBQAEFKn65tVvJepgLbL2oJPzz45Z1/iTBBC5tV8MjRaBVn45lUHe2rlvAgEB
+hostname = %APPEND% *.googlevideo.com, youtubei.googleapis.com, api.revenuecat.com, *.spotify.com, spclient.wg.spotify.com, sub.store

@@ -1,0 +1,7 @@
+# Bỏ qua các file rác và file backup không cần push
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+default*.conf
+All_In_One*
